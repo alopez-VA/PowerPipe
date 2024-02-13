@@ -4,7 +4,90 @@ name: export-and-branch-solution
 
 # "on" instruction specifies the events that trigger this workflow.
 on: 
-  # "workflow_dispatch" instruction indicates that this workflow will be manually triggered.
-  workflow_dispatch
-  
+  # "workflow_dispatch:" instruction indicates that this workflow will be manually triggered.
+  workflow_dispatch:
+    inputs:
+    # "inputs:" instruction allows you to define input parameters for the workflow. This inputs
+    # can be used to customize the behavior of your workflow or pass dynamic values to your actions.
+      solution_name:
+        description: solution_name
+        required: true
+        default: PowerPipe
+       #Do Not change these values
+      solution_exported_folder:
+        description: 'folder name for staging the exported solution *do not change*'
+        required: true
+        default: out/exported/
+      solution_folder:
+        description: 'staging the unpacked solution folder before check-in *do not change*'
+        required: true
+        default: out/solutions/
+      solution_target_folder:
+       description: 'folder name to be created and checked in *do not change*'
+       required: true
+       default: solutions/
+env:
+#edit your values here
+  ENVIRONMENT_URL: '<ENVIRONMENTURL>'
+  CLIENT_ID: '<APPID>'
+  TENANT_ID: '<TENANT ID>'
+permissions:
+  contents: write
+jobs:
+  export-from-dev:
+    runs-on: windows-latest
+    # or you can say runs-on: ubuntu-latest
+    env:
+      RUNNER_DEBUG: 1
+ 
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        lfs: true
+
+ #***** who-am-i action is part of the GitHub Actions for Microsoft Power Platform.
+ # It retrieves information about the authenticated user (service principal) in the specified Power Platform environment.
+    - name: who-am-i action
+      uses: microsoft/powerplatform-actions/who-am-i@v0
+      with:
+        environment-url: ${{env.ENVIRONMENT_URL}}
+        app-id: ${{env.CLIENT_ID}}
+        client-secret: ${{ secrets.PowerPlatformSPN }}
+        tenant-id: ${{env.TENANT_ID}}
+        
+#EXPORT SOLUTION
+ #***** export-solution action is another specific to Microsoft Power Platform.
+    - name: export-solution action
+      uses: microsoft/powerplatform-actions/export-solution@v0
+      with:
+        environment-url: ${{env.ENVIRONMENT_URL}}
+        app-id: ${{env.CLIENT_ID}}
+        client-secret: ${{ secrets.PowerPlatformSPN }}
+        tenant-id: ${{env.TENANT_ID}}
+        solution-name: ${{ github.event.inputs.solution_name }}
+        solution-output-file: ${{ github.event.inputs.solution_exported_folder}}/${{ github.event.inputs.solution_name }}.zip
+
+#UNPACK SOLUTION
+ # unpack-solution action is another specific to Microsoft Power Platform. It serves to purpose of taking a
+ # compressed solution file (usually in ZIP format) and decomposing it into multiple XML files.
+    - name: unpack-solution action
+      uses: microsoft/powerplatform-actions/unpack-solution@v0
+      with:
+        solution-file: ${{ github.event.inputs.solution_exported_folder}}/${{ github.event.inputs.solution_name }}.zip
+        solution-folder: ${{ github.event.inputs.solution_folder}}/${{ github.event.inputs.solution_name }}
+        solution-type: 'Unmanaged'
+        overwrite-files: true
+        
+#CREATES THE ENVIRONMENT FOR THE BRANCH
+ # branch-solution action is another specific to Microsoft Power Platform. It serves the purpose of automatically creating 
+ # a new low-code environment that correspond to a specific GitHub branch. That is, its primary purpose is to facilitate 
+ # the seamless synchronization of the solution between development environments and source control repositories. 
+    - name: branch-solution, prepare it for a PullRequest
+      uses: microsoft/powerplatform-actions/branch-solution@v0
+      with:
+        solution-folder: ${{ github.event.inputs.solution_folder}}/${{ github.event.inputs.solution_name }}
+        solution-target-folder: ${{ github.event.inputs.solution_target_folder}}/${{ github.event.inputs.solution_name }}
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        allow-empty-commit: true
+
 

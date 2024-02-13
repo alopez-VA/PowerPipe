@@ -1,0 +1,10 @@
+# Workflow to Export adn Unpack the PowerPipe Solution
+
+name: export-and-branch-solution
+
+# "on" instruction specifies the events that trigger this workflow.
+on: 
+  # "workflow_dispatch" instruction indicates that this workflow will be manually triggered.
+  workflow_dispatch
+  
+
